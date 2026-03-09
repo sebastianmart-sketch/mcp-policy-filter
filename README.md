@@ -28,6 +28,47 @@ MCP servers expose capabilities such as:
 
 These capabilities can potentially execute sensitive operations.
 
+```mermaid
+flowchart LR
+
+    A[Client / AI Agent Request]
+    --> B[MCP Server]
+
+    B --> C[Policy Filter]
+
+    C --> D[Static YAML Policy Evaluation]
+
+    D --> E{Actor-based directive?}
+
+    E -- No --> F[Static Decision]
+
+    E -- Yes --> G[Resolve actor requirement<br/>human_required / supervised_ai_required]
+
+    G --> H{Actor satisfies requirement?}
+
+    H -- Yes --> F
+    H -- No --> I[Apply fallback decision<br/>deny or require_approval]
+
+    F --> J{External policy script enabled?}
+    I --> J
+
+    J -- No --> K[Return Final Decision]
+
+    J -- Yes --> L[Execute Policy Script]
+
+    L --> M[Script Decision]
+
+    M --> K
+
+    K --> N{Decision}
+
+    N -- allow --> O[MCP Capability Execution]
+    N -- deny --> P[Deny Response]
+    N -- require_approval --> Q[Approval Required]
+
+    O --> R[Return Result to Client]
+```
+
 The **MCP Policy Filter** introduces a policy layer that evaluates
 requests **before the capability is executed**.
 
