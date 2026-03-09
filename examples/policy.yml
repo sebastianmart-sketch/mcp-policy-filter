@@ -1,0 +1,367 @@
+# ============================================================
+# MCP Policy Filter Configuration (YAML)
+# ============================================================
+# This file defines the static policy used by the MCP wrapper
+# before dispatching a real MCP capability.
+#
+# The wrapper:
+# 1. Loads this configuration into memory
+# 2. Evaluates the requested capability + MCP method
+# 3. Applies the matching rule if present
+# 4. Falls back to default_policy if no explicit rule exists
+# 5. Optionally invokes an external policy script for advanced
+#    logic, overrides, approval workflows, or context-based rules
+# ============================================================
+
+# ============================================================
+# Parameters follow the same fallback model as policy decisions:
+# 1. permissions.<capability>
+# 2. default_policy
+#
+# _settings follow a layered fallback model:
+# 1. permissions.<capability>._settings
+# 2. default_policy._settings
+# 3. wrapper_settings
+# 4. policy_script_settings
+#
+# _settings values influence wrapper behavior but do not affect
+# the static policy decision itself.
+# ============================================================
+
+# ============================================================
+# Capability permissions
+# ============================================================
+# Format:
+#
+# permissions:
+#   <domain>.<capability_name>:
+#     <mcp_method>: <decision>
+#     _settings:
+#       <setting_name>: <value>
+#
+# _settings is optional and allows capability-specific wrapper
+# configuration.
+#
+# Keys starting with "_" are ignored for static policy decision
+# evaluation.
+#
+# Currently supported setting_name:
+#   timeout_ms
+#   use_policy_script
+#   actor_requirement_non_match_decision
+#
+# timeout_ms:
+#   Overrides the global timeout defined in:
+#
+#   policy_script_settings:
+#     timeout_ms: <value>
+#
+# use_policy_script:
+#   When true, and the global execution_mode is set to
+#   static_selective_script, the wrapper invokes the external
+#   policy script defined in:
+#
+#   policy_script: "/opt/mcp/policy.py"
+#
+# actor_requirement_non_match_decision:
+#   Controls the fallback decision when an actor-based decision
+#   such as human_required or supervised_ai_required is not
+#   satisfied.
+#
+# Supported values:
+#   deny
+#   require_approval
+#
+# Domains:
+#   tool
+#   resource
+#   prompt
+#
+# Decisions:
+#   allow
+#   deny
+#   require_approval
+#   human_required
+#   supervised_ai_required
+#
+# human_required:
+#   only actor_type: human is allowed
+#
+# supervised_ai_required:
+#   only actor_type: human or actor_type: supervised_ai is allowed
+#
+# Examples of capability names:
+#   tool.access_production_logs
+#   tool.restart_service
+#   resource.server_metrics
+#   prompt.summarize_logs
+# ============================================================
+
+# Each capability entry maps MCP methods to decisions.
+# Optional wrapper-specific behavior can be configured under
+# "_settings".
+permissions:
+
+  # ----------------------------------------------------------
+  # TOOLS
+  # ----------------------------------------------------------
+
+  # Basic tool: visible and executable
+  tool.tool_1:
+    tools/list: allow
+    tools/call: allow
+
+  # Visible, but execution requires approval
+  tool.tool_2:
+    tools/list: allow
+    tools/call: require_approval
+    _settings:
+      timeout_ms: 5000
+      use_policy_script: true
+
+  # Hidden and blocked
+  tool.tool_3:
+    tools/list: deny
+    tools/call: deny
+
+  # Only humans may execute this action.
+  # If a non-human actor attempts it, the request is denied.
+  tool.delete_volume:
+    tools/list: allow
+    tools/call: human_required
+    _settings:
+      actor_requirement_non_match_decision: deny
+
+  # Humans and supervised AI may execute this action.
+  # If the actor requirement is not satisfied, the request
+  # requires approval instead of being denied immediately.
+  tool.restart_service:
+    tools/list: allow
+    tools/call: supervised_ai_required
+    _settings:
+      actor_requirement_non_match_decision: require_approval
+
+  # ----------------------------------------------------------
+  # RESOURCES
+  # ----------------------------------------------------------
+
+  # Resource visible and readable
+  resource.resource_1:
+    resources/list: allow
+    resources/read: allow
+
+  # Resource invisible but readable if explicitly requested
+  resource.resource_2:
+    resources/list: deny
+    resources/read: allow
+    _settings:
+      use_policy_script: true
+
+  # ----------------------------------------------------------
+  # PROMPTS
+  # ----------------------------------------------------------
+
+  # Prompt visible and retrievable
+  prompt.prompt_1:
+    prompts/list: allow
+    prompts/get: allow
+
+
+# ============================================================
+# Default policy
+# ============================================================
+# Applied when:
+# - a capability is not explicitly listed in "permissions"
+# - or the requested MCP method is not explicitly defined for
+#   that capability
+#
+# "other" is the final fallback for unknown or future MCP
+# methods.
+#
+# Optional _settings may be defined under default_policy for
+# consistency.
+#
+# These settings apply when a capability (tool/resource/prompt)
+# is not explicitly defined in the permissions section.
+#
+# Capability-specific _settings override these values.
+#
+# Supported default _settings:
+#   timeout_ms
+#   use_policy_script
+#   actor_requirement_non_match_decision
+#
+# When defined here, timeout_ms overrides the global timeout
+# defined in:
+#
+# policy_script_settings:
+#   timeout_ms: <value>
+#
+# When use_policy_script is set to true, and the global
+# execution_mode is set to static_selective_script, the wrapper
+# invokes the external policy script defined in:
+#
+# policy_script: "/opt/mcp/policy.py"
+# ============================================================
+
+default_policy:
+  tools/list: deny
+  tools/call: deny
+
+  resources/list: deny
+  resources/read: deny
+
+  prompts/list: deny
+  prompts/get: deny
+
+  other: deny
+
+  # _settings should be always conside optional
+  _settings:
+    timeout_ms: 500
+    use_policy_script: false
+
+    # Fallback decision when human_required or
+    # supervised_ai_required is not satisfied and no
+    # capability-specific override is present.
+    actor_requirement_non_match_decision: deny
+
+
+# ============================================================
+# Valid methods
+# ============================================================
+# Used by the wrapper for validation.
+# If a request arrives with a method not listed here, the wrapper
+# can treat it as unknown and fall back to default_policy.other.
+# ============================================================
+
+valid_methods:
+  - tools/list
+  - tools/call
+  - resources/list
+  - resources/read
+  - prompts/list
+  - prompts/get
+
+
+# ============================================================
+# Valid decisions
+# ============================================================
+# Used by the wrapper for validation of both static policy rules
+# and external policy script responses.
+# ============================================================
+
+valid_decisions:
+  - allow
+  - deny
+  - require_approval
+  - human_required
+  - supervised_ai_required
+
+
+# ============================================================
+# Optional external policy script
+# ============================================================
+# If set, the MCP wrapper may invoke this script after or
+# alongside static policy evaluation, depending on the wrapper
+# logic.
+#
+# Leave empty or unset if no external script is needed.
+# ============================================================
+
+policy_script: "/opt/mcp/policy.py"
+
+
+# ============================================================
+# Policy script execution settings
+# ============================================================
+# timeout_ms:
+#   Hard timeout for the external policy script.
+#
+# These settings act as the global execution baseline.
+# They may be overridden by:
+# - default_policy._settings
+# - permissions.<capability>._settings
+#
+# fail_on_script_error:
+#   If true, timeout or execution failure results in deny.
+#
+# execution_mode:
+#   static_only        -> only static YAML policy is evaluated
+#   static_plus_script -> static policy first, then optional script
+#   script_only        -> external script is authoritative
+#   static_selective_script -> static policy first, then optional
+#                              script only for capabilities with:
+#                              _settings.use_policy_script: true
+# ============================================================
+
+policy_script_settings:
+  timeout_ms: 500
+  fail_on_script_error: true
+
+  # execution_mode: static_selective_script
+  #
+  # Script execution follows a selective model:
+  #
+  # 1. If the capability is explicitly listed in "permissions":
+  #    - The external policy script is executed only when:
+  #
+  #      _settings:
+  #        use_policy_script: true
+  #
+  # 2. If the capability is NOT explicitly listed in
+  #    "permissions":
+  #    - The external policy script is executed by default
+  #    - This behavior can be disabled with:
+  #
+  #      default_policy:
+  #        _settings:
+  #          use_policy_script: false
+  #
+  # This model avoids configuration bloat by requiring explicit
+  # opt-in for listed capabilities while still providing a dynamic
+  # policy safety net for unknown or newly introduced capabilities.
+  execution_mode: static_selective_script
+
+
+# ============================================================
+# Optional wrapper behavior settings
+# ============================================================
+# ignore_unknown_response_fields:
+#   If true, the wrapper ignores extra fields returned by the
+#   external script to preserve extensibility.
+#
+# log_policy_decisions:
+#   If true, decisions should be logged for auditability.
+#
+# actor_requirement_non_match_decision:
+#   Global fallback decision when human_required or
+#   supervised_ai_required is not satisfied.
+#
+#   Supported values:
+#     deny
+#     require_approval
+#
+#   This setting is overridden by:
+#   - default_policy._settings.actor_requirement_non_match_decision
+#   - permissions.<capability>._settings.actor_requirement_non_match_decision
+# ============================================================
+
+wrapper_settings:
+  ignore_unknown_response_fields: true
+  log_policy_decisions: true
+  actor_requirement_non_match_decision: deny
+
+
+# ============================================================
+# Optional notes
+# ============================================================
+# This section is purely informational and can be ignored by the
+# wrapper if not needed.
+# ============================================================
+
+notes:
+  purpose: "Static policy configuration for MCP server-side policy enforcement"
+  owner: "Sebastian Martinez"
+  example_policy_model: "Flattened capability namespace with method-specific decisions"
+
