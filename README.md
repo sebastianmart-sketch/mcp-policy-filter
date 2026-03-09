@@ -28,63 +28,10 @@ MCP servers expose capabilities such as:
 
 These capabilities can potentially execute sensitive operations.
 
-```mermaid
-flowchart TD
-
-    A[Client / AI Agent Request]
-    --> B[MCP Server]
-
-    B --> C[Policy Filter]
-
-    C --> D[Static YAML Policy Evaluation]
-
-    D --> E{Actor-based directive?}
-
-    E -- No --> F[Static Decision]
-
-    E -- Yes --> G[Resolve actor requirement<br/>human_required / supervised_ai_required]
-
-    G --> H{Actor satisfies requirement?}
-
-    H -- Yes --> F
-    H -- No --> I[Apply fallback decision<br/>deny or require_approval]
-
-    F --> J{External policy script enabled?}
-    I --> J
-
-    J -- No --> K[Return Final Decision]
-
-    J -- Yes --> L[Execute Policy Script]
-
-    L --> M[Script Decision]
-
-    M --> K
-
-    K --> N{Decision}
-
-    N -- allow --> O[MCP Capability Execution]
-    N -- deny --> P[Deny Response]
-    N -- require_approval --> Q[Approval Required]
-
-    O --> R[Return Result to Client]
-```
-
 The **MCP Policy Filter** introduces a policy layer that evaluates
 requests **before the capability is executed**.
 
-    AI Client
-       │
-       ▼
-    MCP Server
-       │
-       ▼
-    Policy Filter (this project)
-       │
-       ▼
-    Capability Execution
-
-This ensures policy enforcement happens **locally and before
-execution**.
+For the full design rationale, architecture discussion, and illustrative implementation details, see the full proposal document in this repository.
 
 ------------------------------------------------------------------------
 
@@ -98,19 +45,14 @@ This provides several advantages:
 
 - **Execution-point enforcement**  
   Policy is enforced where the action actually happens, not only at the network boundary.
-
 - **Defense in depth**  
   Local enforcement still applies even if a gateway is bypassed, misconfigured, or absent.
-
 - **Operational simplicity**  
   A small static YAML policy can handle common cases, while an optional external script supports advanced logic.
-
 - **Offline and air-gapped support**  
   The model works in disconnected environments without requiring a centralized policy service.
-
 - **Customer-controlled governance**  
   Organizations can implement their own authorization, auditing, approval, or identity logic without changing MCP server code.
-
 ------------------------------------------------------------------------
 
 # Key Features
@@ -191,6 +133,51 @@ Example flow:
            │
            ▼
     Final Decision
+
+    
+```mermaid
+flowchart TD
+
+    A[Client / AI Agent Request]
+    --> B[MCP Server]
+
+    B --> C[Policy Filter]
+
+    C --> D[Static YAML Policy Evaluation]
+
+    D --> E{Actor-based directive?}
+
+    E -- No --> F[Static Decision]
+
+    E -- Yes --> G[Resolve actor requirement<br/>human_required / supervised_ai_required]
+
+    G --> H{Actor satisfies requirement?}
+
+    H -- Yes --> F
+    H -- No --> I[Apply fallback decision<br/>deny or require_approval]
+
+    F --> J{External policy script enabled?}
+    I --> J
+
+    J -- No --> K[Return Final Decision]
+
+    J -- Yes --> L[Execute Policy Script]
+
+    L --> M[Script Decision]
+
+    M --> K
+
+    K --> N{Decision}
+
+    N -- allow --> O[MCP Capability Execution]
+    N -- deny --> P[Deny Response]
+    N -- require_approval --> Q[Approval Required]
+
+    O --> R[Return Result to Client]
+```
+
+This ensures policy enforcement happens **locally and before
+execution**.
 
 ------------------------------------------------------------------------
 
