@@ -1,248 +1,303 @@
 # MCP Policy Filter
 
-A configurable policy enforcement wrapper for MCP servers.
+A lightweight **Policy Enforcement Point (PEP)** for Model Context
+Protocol (MCP) servers.
 
-The **MCP Policy Filter** introduces a lightweight policy layer that intercepts MCP tool and method invocations and evaluates them against configurable rules before execution.
+This project demonstrates a simple and extensible approach for
+**governing MCP capability execution** using a combination of:
 
-The filter allows organizations to define **governance, safety, and operational policies** controlling which actions AI systems may perform.
+-   **Static YAML policy configuration**
+-   **Optional external policy scripts**
+-   **Identity-aware execution context**
 
-Policy decisions can result in:
+The design allows organizations to implement **policy-as-code for MCP
+servers** without modifying the MCP implementation itself.
 
-* **allow** – request proceeds normally
-* **deny** – request is blocked
-* **require_approval** – request requires human approval
+It is intended as a **reference architecture** that can be adopted by
+MCP server implementations, gateways, or containerized deployments.
 
-Policies are defined declaratively using **YAML configuration** and may optionally delegate complex logic to external scripts.
-
----
+------------------------------------------------------------------------
 
 # Overview
 
-Modern AI systems increasingly interact with external tools through MCP servers.
-While this provides powerful capabilities, it also introduces risks such as:
+MCP servers expose capabilities such as:
 
-* unauthorized tool usage
-* unsafe script execution
-* policy violations
-* lack of human oversight
+-   tools
+-   resources
+-   prompts
 
-The MCP Policy Filter provides a **simple and extensible policy enforcement layer** that evaluates requests **before the underlying tool executes**.
+These capabilities can potentially execute sensitive operations.
 
-This approach enables organizations to implement governance controls without modifying the underlying MCP server.
+The **MCP Policy Filter** introduces a policy layer that evaluates
+requests **before the capability is executed**.
 
----
+    AI Client
+       │
+       ▼
+    MCP Server
+       │
+       ▼
+    Policy Filter (this project)
+       │
+       ▼
+    Capability Execution
+
+This ensures policy enforcement happens **locally and before
+execution**.
+
+------------------------------------------------------------------------
 
 # Key Features
 
-* YAML-based policy configuration
-* Method-level and default rules
-* Optional external policy scripts
-* Actor-aware policy decisions
-* Human-in-the-loop approval workflows
-* Lightweight wrapper architecture
-* Structured policy decision responses
+## Static Policy Configuration
 
----
+Policy rules are defined declaratively in YAML.
+
+This allows administrators to control:
+
+-   which capabilities are visible
+-   which capabilities may execute
+-   which operations require approval
+-   actor-based restrictions
+
+## Optional Dynamic Policy Script
+
+For advanced scenarios, the wrapper can invoke an external policy script
+that receives the request context and returns a decision.
+
+This enables:
+
+-   identity-aware policy decisions
+-   integration with external systems
+-   approval workflows
+-   organization-specific governance logic
+
+## Actor-Based Governance
+
+The policy model includes lightweight directives such as:
+
+    human_required
+    supervised_ai_required
+
+These enable simple **Human-in-the-Loop (HITL)** governance patterns.
+
+## Deployment Flexibility
+
+The policy enforcement hook may be integrated as:
+
+-   part of the MCP server
+-   a server launcher
+-   a lightweight wrapper
+-   a container entrypoint
+
+This allows the model to work across:
+
+-   bare-metal Linux systems
+-   virtual machines
+-   containerized MCP servers
+-   orchestrated platforms such as Kubernetes
+
+------------------------------------------------------------------------
 
 # Architecture
 
-The policy filter acts as a **wrapper around MCP method execution**.
+The policy filter follows a common **Policy Enforcement Point (PEP)**
+pattern used in systems such as:
 
-```mermaid
-flowchart LR
+-   Kubernetes admission controllers
+-   service mesh authorization policies
+-   policy-as-code frameworks like Open Policy Agent (OPA)
 
-    A[Client / AI Agent]
-    --> B[Request Interception]
+The filter evaluates the request **before capability execution**.
 
-    B --> C[Policy Resolution]
-    C --> C1[Method Rule]
-    C --> C2[Default Rule]
-    C --> C3[Fallback Rule]
+Example flow:
 
-    C1 --> D[Context Evaluation]
-    C2 --> D
-    C3 --> D
+    Request Received
+           │
+           ▼
+    Static YAML Policy Evaluation
+           │
+           ▼
+    Actor Requirement Resolution
+           │
+           ▼
+    Optional External Policy Script
+           │
+           ▼
+    Final Decision
 
-    D --> D1[Actor Validation]
-    D --> D2[Settings Processing]
-    D --> D3[Optional Script Execution]
-
-    D1 --> E[Decision Engine]
-    D2 --> E
-    D3 --> E
-
-    E -->|Allow| F[MCP Server Execution]
-    E -->|Deny| G[Deny Response]
-    E -->|Require Approval| H[Approval Response]
-
-    F --> I[Tool Result]
-    I --> J[Return to Client]
-```
-
-The wrapper performs **pre-execution evaluation**, ensuring that requests are validated before reaching the underlying tool.
-
----
-
-# Example Policy Configuration
-
-```yaml
-permissions:
-
-  tools.run_script:
-    allow: false
-    human_required: true
-
-  tools.list_files:
-    allow: true
-
-default:
-  allow: true
-```
-
-This configuration:
-
-* blocks script execution unless a human is involved
-* allows file listing
-* allows other operations by default
-
----
+------------------------------------------------------------------------
 
 # Policy Decision Model
 
-Policy evaluation returns a structured response.
+Policy evaluation returns one of the following decisions:
 
-Example:
+  Decision           Meaning
+  ------------------ ---------------------------------
+  allow              request may proceed
+  deny               request must be blocked
+  require_approval   request requires human approval
 
-```json
+Actor-based directives may also appear in static configuration or script
+responses:
+
+  Directive                Meaning
+  ------------------------ -------------------------------------------
+  human_required           only human actors may execute
+  supervised_ai_required   human or supervised AI actors may execute
+
+These directives are resolved by the wrapper using
+`identity_context.actor_type`.
+
+------------------------------------------------------------------------
+
+# Policy Configuration Example
+
+Example YAML policy:
+
+``` yaml
+permissions:
+
+  tool.delete_volume:
+    tools/list: allow
+    tools/call: require_approval
+
+  resource.server_metrics:
+    resources/list: allow
+    resources/read: allow
+
+default_policy:
+
+  tools/list: deny
+  tools/call: deny
+
+  resources/list: deny
+  resources/read: deny
+
+  prompts/list: deny
+  prompts/get: human_required
+
+  other: deny
+```
+
+The policy fallback model is:
+
+1.  `permissions.<capability>.<method>`
+2.  `default_policy.<method>`
+3.  `default_policy.other`
+
+------------------------------------------------------------------------
+
+# External Policy Script
+
+When enabled, the wrapper may call an external script that receives
+request context:
+
+``` json
 {
-  "decision": "deny",
-  "reason": "script_execution_not_allowed",
-  "metadata": {
-    "method": "tools.run_script"
+  "request_context": {
+    "mcp_context": {
+      "method": "tools/call",
+      "name": "tool.delete_volume"
+    },
+    "identity_context": {
+      "actor_type": "human"
+    }
   }
 }
 ```
 
-Possible decisions:
+The script returns a decision:
 
-* `allow`
-* `deny`
-* `require_approval`
-
-Optional metadata may provide context for logging or auditing.
-
----
-
-# Example Wrapper Logic (Simplified)
-
-```python
-def evaluate_request(method, actor, policy):
-
-    rule = policy.get("permissions", {}).get(method)
-
-    if not rule:
-        rule = policy.get("default")
-
-    if rule.get("human_required") and not actor:
-        return {"decision": "require_approval"}
-
-    if not rule.get("allow", False):
-        return {"decision": "deny"}
-
-    return {"decision": "allow"}
+``` json
+{
+  "decision": "allow",
+  "reason": "User is member of storage-admin group"
+}
 ```
 
-This example demonstrates the core concept of resolving policy rules before execution.
+This allows integration with:
 
----
+-   LDAP or directory services
+-   external policy engines
+-   governance dashboards
+-   approval systems
+
+------------------------------------------------------------------------
 
 # Repository Structure
 
-```
-docs/
-    architecture.md
-    policy-model.md
+    mcp-policy-filter/
+    │
+    ├── wrapper/
+    │   └── mcp_policy_wrapper.py
+    │
+    ├── examples/
+    │   └── policy.yaml
+    │
+    └── README.md
 
-examples/
-    policy.yaml
-    wrapper_example.py
-    policy_script_example.py
+------------------------------------------------------------------------
 
-diagrams/
-    wrapper-flow.mmd
-    policy-flow.mmd
-```
+# Example Use Cases
 
----
+This model can support a variety of governance scenarios.
 
-# Use Cases
+## Capability Visibility Control
 
-The MCP Policy Filter can be used for:
+Hide sensitive tools from `tools/list` while still allowing controlled
+execution.
 
-* AI tool governance
-* secure execution of external scripts
-* restricting sensitive tool operations
-* implementing human approval workflows
-* enforcing organizational policies for AI agents
+## Human-in-the-Loop Operations
 
----
+Require human approval for destructive actions.
 
-# Design Principles
+## AI Governance
 
-The design follows several principles:
+Restrict certain capabilities to human operators or supervised agents.
 
-**Simplicity**
+## Enterprise Policy Integration
 
-The policy model should be easy to understand and implement.
+Use external scripts to integrate with:
 
-**Extensibility**
+-   identity providers
+-   approval workflows
+-   security policy engines
 
-Policies may optionally delegate logic to external scripts.
+------------------------------------------------------------------------
 
-**Separation of Concerns**
+# Security Considerations
 
-The wrapper handles policy enforcement while the MCP server continues to provide tool functionality.
+The policy script receives **identity attributes** rather than
+authentication credentials.
 
-**Minimal Intrusion**
+This allows authorization decisions without exposing:
 
-The approach does not require modification of existing MCP tools.
+-   tokens
+-   passwords
+-   session secrets
 
----
+Deployments may optionally execute the policy script within a restricted
+environment such as an SELinux confinement domain.
+
+------------------------------------------------------------------------
 
 # Status
 
-This project currently provides:
+This repository provides a **reference architecture and illustrative
+implementation**.
 
-* architectural model
-* policy configuration examples
-* reference implementation patterns
+It demonstrates how MCP servers can integrate a simple policy
+enforcement layer without modifying the MCP protocol itself.
 
-It is intended as a **reference architecture for MCP policy enforcement**.
-
----
-
-# License
-
-This project is licensed under the **MIT License**.
-
-See the `LICENSE` file for details.
-
----
-
-# Contributing
-
-Contributions, improvements, and discussion are welcome.
-
-Possible areas for extension include:
-
-* additional policy evaluation strategies
-* integrations with approval systems
-* policy auditing and logging frameworks
-* extended policy schemas
-
----
+------------------------------------------------------------------------
 
 # Author
 
-Sebastian Martinez sebastianmart@gmail.com
-Project created as an exploration of **policy governance mechanisms for MCP tool execution**.
+Sebastian Martinez
+
+------------------------------------------------------------------------
+
+# License
+
+MIT License
