@@ -486,7 +486,7 @@ def evaluate_static_policy(
         "reason": f"Policy evaluated for '{ctx.name}' using method '{ctx.method}'."
     }
 
-    return evaluate_static_policy(ctx, config, result)
+    return finalize_decision_result(ctx, config, result)
 
 
 # ==========================================================
