@@ -1,7 +1,6 @@
 # MCP Policy Filter
 
-A lightweight **Policy Enforcement Point (PEP)** for Model Context
-Protocol (MCP) servers.
+A lightweight **Policy Enforcement Point (PEP)** for Model Context Protocol (MCP) servers that enables policy-as-code governance of MCP capabilities.
 
 This project demonstrates a simple and extensible approach for
 **governing MCP capability execution** using a combination of:
@@ -26,7 +25,7 @@ MCP servers expose capabilities such as:
 -   resources
 -   prompts
 
-These capabilities can potentially execute sensitive operations.
+These capabilities may execute operations that affect infrastructure, data access, or system state.
 
 The **MCP Policy Filter** introduces a policy layer that evaluates
 requests **before the capability is executed**.
@@ -114,7 +113,7 @@ pattern used in systems such as:
 
 -   Kubernetes admission controllers
 -   service mesh authorization policies
--   policy-as-code frameworks like Open Policy Agent (OPA)
+-   policy-as-code frameworks such as Open Policy Agent (OPA)
 
 The filter evaluates the request **before capability execution**.
 
@@ -338,7 +337,7 @@ environment such as an SELinux confinement domain.
 # Status
 
 This repository provides a **reference architecture and illustrative
-implementation**.
+implementation** of a server-side policy enforcement model for MCP servers.
 
 It demonstrates how MCP servers can integrate a simple policy
 enforcement layer without modifying the MCP protocol itself.
