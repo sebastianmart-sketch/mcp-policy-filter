@@ -88,6 +88,31 @@ execution**.
 
 ------------------------------------------------------------------------
 
+# Why This Exists
+
+Current MCP security approaches often rely on external gateways, centralized policy engines, or client-side controls. These approaches are useful, but they operate outside the execution layer of the MCP server.
+
+This project explores a complementary model: a lightweight **server-side policy enforcement hook** evaluated locally before an MCP capability is executed.
+
+This provides several advantages:
+
+- **Execution-point enforcement**  
+  Policy is enforced where the action actually happens, not only at the network boundary.
+
+- **Defense in depth**  
+  Local enforcement still applies even if a gateway is bypassed, misconfigured, or absent.
+
+- **Operational simplicity**  
+  A small static YAML policy can handle common cases, while an optional external script supports advanced logic.
+
+- **Offline and air-gapped support**  
+  The model works in disconnected environments without requiring a centralized policy service.
+
+- **Customer-controlled governance**  
+  Organizations can implement their own authorization, auditing, approval, or identity logic without changing MCP server code.
+
+------------------------------------------------------------------------
+
 # Key Features
 
 ## Static Policy Configuration
