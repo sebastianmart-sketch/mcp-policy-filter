@@ -247,4 +247,5 @@ Possible areas for extension include:
 
 # Author
 
+Sebastian MArtinez sebastianmart@gmail.com
 Project created as an exploration of **policy governance mechanisms for MCP tool execution**.
