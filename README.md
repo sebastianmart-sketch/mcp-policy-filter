@@ -336,6 +336,7 @@ enforcement layer without modifying the MCP protocol itself.
 # Author
 
 Sebastian Martinez
+
 LinkedIn: https://www.linkedin.com/in/sebastianmartinezt/
 
 ------------------------------------------------------------------------
