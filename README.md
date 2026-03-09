@@ -29,7 +29,7 @@ MCP servers expose capabilities such as:
 These capabilities can potentially execute sensitive operations.
 
 ```mermaid
-flowchart LR
+flowchart TD
 
     A[Client / AI Agent Request]
     --> B[MCP Server]
