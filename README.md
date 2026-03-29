@@ -18,7 +18,8 @@ MCP server implementations, gateways, or containerized deployments.
 ------------------------------------------------------------------------
 
 ## Author’s note
-The core ideas, architecture and overall direction of this project are entirely mine and based on my experience at SUSE.  
+The core ideas, architecture and overall direction of this project are entirely mine and based on my personal experience.
+This is a completely personal and independent project and has no official endorsement, support or involvement from SUSE.
 The implementation (code) was developed with AI assistance under my supervision for rapid prototyping and demonstration purposes only.
 
 **Important disclaimer**:  
